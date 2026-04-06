@@ -4,7 +4,7 @@ const dotenv = require("dotenv");
 const path = require("path");
 
 const connectDB = require("./src/config/db");
-const newsRoutes = require("../backend/src/Routes/NewsRoutes");
+const newsRoutes = require("./src/routes/NewsRoutes");
 
 dotenv.config();
 

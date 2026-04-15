@@ -1,53 +1,89 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const path = require("path");
+﻿require("dotenv").config();
 
-const connectDB = require("./src/config/db");
-const newsRoutes = require("./src/routes/NewsRoutes");
+const mongoose = require("mongoose");
+const axios = require("axios");
+const app = require("./app"); // ✅ import app
 
-dotenv.config();
+// ================= DB CONNECT =================
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected ✅"))
+  .catch((err) => {
+    console.error("DB Error:", err.message);
+    process.exit(1);
+  });
 
-const app = express();
+// ================= ROUTES =================
+const authRoutes = require("./routes/auth.routes");
+const articleRoutes = require("./routes/articles.routes");
+const adminRoutes = require("./routes/adminRoutes");
+const advertiserRoutes = require("./routes/advertiser.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+const aiRoutes = require("./routes/ai.routes");
+const readerRoutes = require("./routes/reader.routes"); // ✅ FIX
 
-// ✅ Connect Database
-connectDB();
+// ================= USE ROUTES =================
+app.use("/api/auth", authRoutes);
+app.use("/api/articles", articleRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/advertiser", advertiserRoutes);
+app.use("/api/journalist-dashboard", dashboardRoutes);
+app.use("/api/ai", aiRoutes);
 
-// ✅ Middlewares
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 🔥 IMPORTANT (THIS FIXES YOUR ERROR)
+app.use("/api/reader", readerRoutes);
 
-// ✅ Static folder (important fix)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// ================= EXTERNAL NEWS API =================
+app.get("/api/news", async (req, res) => {
+  try {
+    const response = await axios.get(
+      `https://newsapi.org/v2/everything?q=india&sortBy=publishedAt&apiKey=${process.env.NEWS_API_KEY}`
+    );
 
-// ✅ Routes
-app.use("/api/news", newsRoutes);
+    const filtered = response.data.articles.filter(
+      (item) => item.title && item.urlToImage
+    );
 
-// ✅ Default route (optional but useful)
-app.get("/", (req, res) => {
-  res.send("City State News API Running 🚀");
+    res.json({
+      success: true,
+      totalResults: filtered.length,
+      articles: filtered,
+    });
+  } catch (err) {
+    console.error("NEWS API ERROR:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching external news",
+    });
+  }
 });
 
-// ✅ 404 handler
+// ================= ROOT =================
+app.get("/", (req, res) => {
+  res.send("API Running 🚀");
+});
+
+// ================= 404 =================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: "Route not found",
+    message: "Route not found ❌",
   });
 });
 
-// ✅ Global error handler
+// ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err);
+
   res.status(500).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message: err.message || "Server Error",
   });
 });
 
-// ✅ Server start
+// ================= SERVER =================
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} 🚀`);
 });
